@@ -1,24 +1,48 @@
+use clap::Parser;
 use image::{DynamicImage, GenericImageView, RgbImage};
 use rawler::imgop::develop::RawDevelop;
 
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(short, long, value_delimiter = ',')]
+    file: Vec<String>,
+
+    #[arg(short, long)]
+    output: String,
+}
+
+
 fn main() {
-    let raw_image_1 = rawler::decode_file("sample/01_m42_sample.CR3").unwrap();
-    let raw_image_2 = rawler::decode_file("sample/02_m42_sample.CR3").unwrap();
+    let args = Args::parse();
+
+    if args.file.len() > 2 {
+        println!("Should specify more than 2 images.");
+        return;
+    }
+
+    let first_image = convert_to_dynamic_image(&args.file[0]);
+    let mut new_image: DynamicImage = first_image.clone();
+    for f in &args.file[1..args.file.len()] {
+        let image = convert_to_dynamic_image(f);
+        new_image = lighten_composition_inner(&new_image, &image);
+    }
+    new_image.save(args.output).unwrap();
+}
 
 
+fn convert_to_dynamic_image(file_path: &str) -> DynamicImage {
+    let raw_image = rawler::decode_file(file_path).unwrap();
     let dev = RawDevelop::default();
-    let image1 = dev.develop_intermediate(&raw_image_1).unwrap().to_dynamic_image().unwrap();
-    let image2 = dev.develop_intermediate(&raw_image_2).unwrap().to_dynamic_image().unwrap();
-
-    let image_buffer = lighten_composition(image1, image2);
-    image_buffer.save("sample/composite.tiff").unwrap();
+    let image = dev.develop_intermediate(&raw_image).unwrap().to_dynamic_image().unwrap();
+    return image;
 }
 
 
 /**
  * 画像を比較明合成する
  */
-fn lighten_composition(image1: DynamicImage, image2: DynamicImage) -> DynamicImage {
+fn lighten_composition_inner(image1: &DynamicImage, image2: &DynamicImage) -> DynamicImage {
     let (width, height) = image1.dimensions();
     let mut image = RgbImage::new(width, height);
 
