@@ -21,6 +21,11 @@ fn main() {
         return;
     }
 
+    if args.output == "" {
+        println!("Should specify output file.");
+        return;
+    }
+
     let first_image = convert_to_dynamic_image(&args.file[0]);
     let mut new_image: DynamicImage = first_image.clone();
     for f in &args.file[1..args.file.len()] {
