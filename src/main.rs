@@ -2,37 +2,53 @@ use clap::Parser;
 use image::{DynamicImage, GenericImageView, RgbImage};
 use rawler::imgop::develop::RawDevelop;
 
-#[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
-struct Args {
-    #[arg(short, long, value_delimiter = ',')]
-    file: Vec<String>,
+#[derive(clap::Subcommand, Clone, Debug)]
+enum Mode {
+    Composite {
+        #[arg(short, long, value_delimiter = ',')]
+        file: Vec<String>,
 
-    #[arg(short, long)]
-    output: String,
+        #[arg(short, long)]
+        output: String,
+    },
+    Test,
+}
+
+#[derive(clap::Parser)]
+#[command(name = "mode", author, version, about, long_about = None)]
+struct Cli {
+    #[clap(subcommand)]
+    mode: Mode,
 }
 
 
 fn main() {
-    let args = Args::parse();
+    let args = Cli::parse();
 
-    if args.file.len() > 2 {
-        println!("Should specify more than 2 images.");
-        return;
-    }
+    match args.mode {
+        Mode::Composite {file, output} => {
+            if file.len() > 2 {
+                println!("Should specify more than 2 images.");
+                return;
+            }
 
-    if args.output == "" {
-        println!("Should specify output file.");
-        return;
-    }
+            if output == "" {
+                println!("Should specify output file.");
+                return;
+            }
 
-    let first_image = convert_to_dynamic_image(&args.file[0]);
-    let mut new_image: DynamicImage = first_image.clone();
-    for f in &args.file[1..args.file.len()] {
-        let image = convert_to_dynamic_image(f);
-        new_image = lighten_composition_inner(&new_image, &image);
-    }
-    new_image.save(args.output).unwrap();
+            let first_image = convert_to_dynamic_image(&file[0]);
+            let mut new_image: DynamicImage = first_image.clone();
+            for f in &file[1..file.len()] {
+                let image = convert_to_dynamic_image(f);
+                new_image = lighten_composition_inner(&new_image, &image);
+            }
+            new_image.save(output).unwrap();
+        }
+        Mode::Test {  } => {
+            println!("Test");
+        }
+    };
 }
 
 
