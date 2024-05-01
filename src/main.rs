@@ -34,7 +34,7 @@ fn main() {
     let args = Cli::parse();
 
     match args.mode {
-        Mode::Composite {file, output} => {
+        Mode::Composite { file, output } => {
             if file.len() > 2 {
                 println!("Should specify more than 2 images.");
                 return;
@@ -53,15 +53,13 @@ fn main() {
             }
             new_image.save(output).unwrap();
         }
-        Mode::Test {file } => {
+        Mode::Test { file } => {
             let image = convert_to_dynamic_image(&file);
             let binarized_image = binarize(&image);
             binarized_image.save("output.tiff").unwrap();
         }
     };
 }
-
-
 
 
 /**
@@ -93,8 +91,8 @@ fn binarize(image: &DynamicImage) -> DynamicImage {
 
 
 /**
-* DynamicImageをMatに変換する
-*/
+ * DynamicImageをMatに変換する
+ */
 fn dynamic_image_to_mat(image: &DynamicImage) -> Mat {
     let mut bytes: Vec<u8> = Vec::new();
     image.write_to(&mut Cursor::new(&mut bytes), image::ImageOutputFormat::Tiff).unwrap();
