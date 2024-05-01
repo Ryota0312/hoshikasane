@@ -1,8 +1,9 @@
-use std::io::{BufWriter, Cursor};
+use std::io::Cursor;
+
 use clap::Parser;
 use image::{DynamicImage, GenericImageView, RgbImage};
-use opencv::core::{Mat, MatTraitConstManual, Vec3b};
-use opencv::imgcodecs::{imdecode, imread, IMREAD_COLOR, IMREAD_GRAYSCALE};
+use opencv::core::Mat;
+use opencv::imgcodecs::{imdecode, IMREAD_GRAYSCALE};
 use opencv::imgproc::{THRESH_OTSU, threshold};
 use rawler::imgop::develop::RawDevelop;
 
@@ -54,32 +55,40 @@ fn main() {
         }
         Mode::Test {file } => {
             let image = convert_to_dynamic_image(&file);
-
-            let mut bytes: Vec<u8> = Vec::new();
-            image.write_to(&mut Cursor::new(&mut bytes), image::ImageOutputFormat::Tiff).unwrap();
-            let mat = imdecode(&bytes.as_slice(), IMREAD_GRAYSCALE).unwrap();
-
-            let max_thresh_val = threshold(&mat, &mut Mat::default(), 0.0, 255.0, THRESH_OTSU).unwrap() as f32;
-
-            let (width, height) = image.dimensions();
-            let mut new_image = RgbImage::new(width, height);
-            for y in 0..height {
-                for x in 0..width {
-                    let pixel = image.get_pixel(x, y);
-                    let r = pixel[0] as f32;
-                    let g = pixel[1] as f32;
-                    let b = pixel[2] as f32;
-                    let l = 0.299 * r + 0.587 * g + 0.114 * b;
-                    if l > max_thresh_val {
-                        new_image.put_pixel(x, y, image::Rgb([255, 255, 255]));
-                    } else {
-                        new_image.put_pixel(x, y, image::Rgb([0, 0, 0]));
-                    }
-                }
-            }
-            new_image.save("binarized.tiff").unwrap();
+            let binarized_image = binarize(&image);
+            binarized_image.save("output.tiff").unwrap();
         }
     };
+}
+
+
+/**
+ * 画像を2値化する
+ */
+fn binarize(image: &DynamicImage) -> DynamicImage {
+    let mut bytes: Vec<u8> = Vec::new();
+    image.write_to(&mut Cursor::new(&mut bytes), image::ImageOutputFormat::Tiff).unwrap();
+    let mat = imdecode(&bytes.as_slice(), IMREAD_GRAYSCALE).unwrap();
+
+    let max_thresh_val = threshold(&mat, &mut Mat::default(), 0.0, 255.0, THRESH_OTSU).unwrap() as f32;
+
+    let (width, height) = image.dimensions();
+    let mut new_image = RgbImage::new(width, height);
+    for y in 0..height {
+        for x in 0..width {
+            let pixel = image.get_pixel(x, y);
+            let r = pixel[0] as f32;
+            let g = pixel[1] as f32;
+            let b = pixel[2] as f32;
+            let l = 0.299 * r + 0.587 * g + 0.114 * b;
+            if l > max_thresh_val {
+                new_image.put_pixel(x, y, image::Rgb([255, 255, 255]));
+            } else {
+                new_image.put_pixel(x, y, image::Rgb([0, 0, 0]));
+            }
+        }
+    }
+    return DynamicImage::from(new_image);
 }
 
 
