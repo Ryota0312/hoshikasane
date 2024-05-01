@@ -3,6 +3,9 @@ use std::io::Cursor;
 use clap::Parser;
 use image::{DynamicImage, GenericImageView, RgbImage};
 use opencv::core::Mat;
+use opencv::features2d::{AKAZE, Feature2DTrait};
+use opencv::features2d::AKAZE_DescriptorType::DESCRIPTOR_MLDB;
+use opencv::features2d::KAZE_DiffusivityType::DIFF_PM_G2;
 use opencv::imgcodecs::{imdecode, IMREAD_GRAYSCALE};
 use opencv::imgproc::{THRESH_OTSU, threshold};
 use rawler::imgop::develop::RawDevelop;
@@ -17,8 +20,8 @@ enum Mode {
         output: String,
     },
     Test {
-        #[arg(short, long)]
-        file: String,
+        #[arg(short, long, value_delimiter = ',')]
+        file: Vec<String>,
     },
 }
 
@@ -53,12 +56,29 @@ fn main() {
             }
             new_image.save(output).unwrap();
         }
-        Mode::Test { file } => {
-            let image = convert_to_dynamic_image(&file);
-            let binarized_image = binarize(&image);
-            binarized_image.save("output.tiff").unwrap();
+        Mode::Test { file: files } => {
+            let image1 = convert_to_dynamic_image(&files[0]);
+            let image2 = convert_to_dynamic_image(&files[1]);
+
+            let binarized_image1 = binarize(&image1);
+            let binarized_image2 = binarize(&image2);
+
+            let keypoints1 = get_keypoints(&binarized_image1);
+            let keypoints2 = get_keypoints(&binarized_image2);
+
+            println!("keypoints1: {}", keypoints1.len());
+            println!("keypoints2: {}", keypoints2.len());
         }
     };
+}
+
+
+fn get_keypoints(image: &DynamicImage) -> opencv::types::VectorOfKeyPoint {
+    let mut akaze = AKAZE::create(DESCRIPTOR_MLDB, 0, 3, 0.001, 4, 4, DIFF_PM_G2).unwrap();
+    let mut key_points = opencv::types::VectorOfKeyPoint::new();
+    let mut descriptors = Mat::default();
+    akaze.detect_and_compute(&dynamic_image_to_mat(image, IMREAD_GRAYSCALE), &[], &mut key_points, &mut descriptors, false).unwrap();
+    return key_points;
 }
 
 
