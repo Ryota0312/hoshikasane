@@ -57,17 +57,17 @@ fn main() {
             new_image.save(output).unwrap();
         }
         Mode::Test { file: files } => {
-            let image1 = convert_to_dynamic_image(&files[0]);
-            let image2 = convert_to_dynamic_image(&files[1]);
+            if files.len() == 0 {
+                println!("Should specify file.");
+                return;
+            }
 
-            let binarized_image1 = binarize(&image1);
-            let binarized_image2 = binarize(&image2);
-
-            let keypoints1 = get_keypoints(&binarized_image1);
-            let keypoints2 = get_keypoints(&binarized_image2);
-
-            println!("keypoints1: {}", keypoints1.len());
-            println!("keypoints2: {}", keypoints2.len());
+            for f in files {
+                let image1 = convert_to_dynamic_image(&f);
+                let binarized_image1 = binarize(&image1);
+                let keypoints1 = get_keypoints(&binarized_image1);
+                println!("keypoints: {}", keypoints1.len());
+            }
         }
     };
 }
