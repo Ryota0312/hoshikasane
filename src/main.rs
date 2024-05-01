@@ -62,13 +62,13 @@ fn main() {
 }
 
 
+
+
 /**
  * 画像を2値化する
  */
 fn binarize(image: &DynamicImage) -> DynamicImage {
-    let mut bytes: Vec<u8> = Vec::new();
-    image.write_to(&mut Cursor::new(&mut bytes), image::ImageOutputFormat::Tiff).unwrap();
-    let mat = imdecode(&bytes.as_slice(), IMREAD_GRAYSCALE).unwrap();
+    let mat = dynamic_image_to_mat(image);
 
     let max_thresh_val = threshold(&mat, &mut Mat::default(), 0.0, 255.0, THRESH_OTSU).unwrap() as f32;
 
@@ -89,6 +89,16 @@ fn binarize(image: &DynamicImage) -> DynamicImage {
         }
     }
     return DynamicImage::from(new_image);
+}
+
+
+/**
+* DynamicImageをMatに変換する
+*/
+fn dynamic_image_to_mat(image: &DynamicImage) -> Mat {
+    let mut bytes: Vec<u8> = Vec::new();
+    image.write_to(&mut Cursor::new(&mut bytes), image::ImageOutputFormat::Tiff).unwrap();
+    return imdecode(&bytes.as_slice(), IMREAD_GRAYSCALE).unwrap();
 }
 
 
