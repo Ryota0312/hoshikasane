@@ -2,12 +2,14 @@ use std::io::Cursor;
 
 use clap::Parser;
 use image::{DynamicImage, GenericImageView, RgbImage};
-use opencv::core::Mat;
-use opencv::features2d::{AKAZE, Feature2DTrait};
+use opencv::core::{Mat, Scalar, ToOutputArray, Vector};
+use opencv::features2d::{AKAZE, draw_keypoints, Feature2DTrait};
 use opencv::features2d::AKAZE_DescriptorType::DESCRIPTOR_MLDB;
+use opencv::features2d::DrawMatchesFlags::DEFAULT;
 use opencv::features2d::KAZE_DiffusivityType::DIFF_PM_G2;
-use opencv::imgcodecs::{imdecode, IMREAD_GRAYSCALE};
+use opencv::imgcodecs::{imdecode, imencode, IMREAD_COLOR, IMREAD_GRAYSCALE};
 use opencv::imgproc::{THRESH_OTSU, threshold};
+use opencv::types::VectorOfKeyPoint;
 use rawler::imgop::develop::RawDevelop;
 
 #[derive(clap::Subcommand, Clone, Debug)]
@@ -63,13 +65,30 @@ fn main() {
             }
 
             for f in files {
-                let image1 = convert_to_dynamic_image(&f);
-                let binarized_image1 = binarize(&image1);
-                let keypoints1 = get_keypoints(&binarized_image1);
-                println!("keypoints: {}", keypoints1.len());
+                // let keypoints = get_keypoints_from_filename(&f);
+                draw_keypoints_from_filename(&f);
             }
         }
     };
+}
+
+
+fn draw_keypoints_from_filename(file: &str) {
+    let image1 = convert_to_dynamic_image(file);
+    let mat = dynamic_image_to_mat(&image1, IMREAD_COLOR);
+    let vector = get_keypoints_from_filename(file);
+
+    let mut output = Mat::default();
+    draw_keypoints(&mat, &vector, &mut output, Scalar::all(-1f64), DEFAULT).unwrap();
+    let output_image = mat_to_dynamic_image(&output);
+    output_image.save("output.tiff").unwrap();
+}
+
+
+fn get_keypoints_from_filename(filename: &str) -> VectorOfKeyPoint {
+    let image1 = convert_to_dynamic_image(&filename);
+    let binarized_image1 = binarize(&image1);
+    return get_keypoints(&binarized_image1);
 }
 
 
@@ -117,6 +136,16 @@ fn dynamic_image_to_mat(image: &DynamicImage, flags: i32) -> Mat {
     let mut bytes: Vec<u8> = Vec::new();
     image.write_to(&mut Cursor::new(&mut bytes), image::ImageOutputFormat::Tiff).unwrap();
     return imdecode(&bytes.as_slice(), flags).unwrap();
+}
+
+
+/**
+* MatをDynamicImageに変換する
+*/
+fn mat_to_dynamic_image(mat: &Mat) -> DynamicImage {
+    let mut buf = Vector::new();
+    imencode(".tiff", &mat, &mut buf, &Vector::new()).unwrap();
+    return image::load_from_memory(buf.as_slice()).unwrap();
 }
 
 
