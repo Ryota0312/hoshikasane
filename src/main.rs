@@ -2,13 +2,13 @@ use std::io::Cursor;
 
 use clap::Parser;
 use image::{DynamicImage, GenericImageView, RgbImage};
-use opencv::core::{Mat, Scalar, ToOutputArray, Vector};
+use opencv::core::{Mat, Scalar, Vector};
+use opencv::features2d::{AKAZE, draw_keypoints, Feature2DTrait};
 use opencv::features2d::AKAZE_DescriptorType::DESCRIPTOR_MLDB;
 use opencv::features2d::DrawMatchesFlags::DEFAULT;
 use opencv::features2d::KAZE_DiffusivityType::DIFF_PM_G2;
-use opencv::features2d::{draw_keypoints, Feature2DTrait, AKAZE};
 use opencv::imgcodecs::{imdecode, imencode, IMREAD_COLOR, IMREAD_GRAYSCALE};
-use opencv::imgproc::{threshold, THRESH_OTSU};
+use opencv::imgproc::{THRESH_OTSU, threshold};
 use opencv::types::VectorOfKeyPoint;
 use rawler::imgop::develop::RawDevelop;
 
@@ -64,7 +64,6 @@ fn main() {
             }
 
             for f in files {
-                // let keypoints = get_keypoints_from_filename(&f);
                 draw_keypoints_from_filename(&f);
             }
         }
@@ -88,9 +87,9 @@ fn get_keypoints_from_filename(filename: &str) -> VectorOfKeyPoint {
     return get_keypoints(&binarized_image1);
 }
 
-fn get_keypoints(image: &DynamicImage) -> opencv::types::VectorOfKeyPoint {
+fn get_keypoints(image: &DynamicImage) -> VectorOfKeyPoint {
     let mut akaze = AKAZE::create(DESCRIPTOR_MLDB, 0, 3, 0.001, 4, 4, DIFF_PM_G2).unwrap();
-    let mut key_points = opencv::types::VectorOfKeyPoint::new();
+    let mut key_points = VectorOfKeyPoint::new();
     let mut descriptors = Mat::default();
     akaze
         .detect_and_compute(
