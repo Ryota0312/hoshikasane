@@ -3,12 +3,12 @@ use std::io::Cursor;
 use clap::Parser;
 use image::{DynamicImage, GenericImageView, RgbImage};
 use opencv::core::{Mat, Scalar, ToOutputArray, Vector};
-use opencv::features2d::{AKAZE, draw_keypoints, Feature2DTrait};
 use opencv::features2d::AKAZE_DescriptorType::DESCRIPTOR_MLDB;
 use opencv::features2d::DrawMatchesFlags::DEFAULT;
 use opencv::features2d::KAZE_DiffusivityType::DIFF_PM_G2;
+use opencv::features2d::{draw_keypoints, Feature2DTrait, AKAZE};
 use opencv::imgcodecs::{imdecode, imencode, IMREAD_COLOR, IMREAD_GRAYSCALE};
-use opencv::imgproc::{THRESH_OTSU, threshold};
+use opencv::imgproc::{threshold, THRESH_OTSU};
 use opencv::types::VectorOfKeyPoint;
 use rawler::imgop::develop::RawDevelop;
 
@@ -33,7 +33,6 @@ struct Cli {
     #[clap(subcommand)]
     mode: Mode,
 }
-
 
 fn main() {
     let args = Cli::parse();
@@ -72,7 +71,6 @@ fn main() {
     };
 }
 
-
 fn draw_keypoints_from_filename(file: &str) {
     let image1 = convert_to_dynamic_image(file);
     let mat = dynamic_image_to_mat(&image1, IMREAD_COLOR);
@@ -84,22 +82,27 @@ fn draw_keypoints_from_filename(file: &str) {
     output_image.save("output.tiff").unwrap();
 }
 
-
 fn get_keypoints_from_filename(filename: &str) -> VectorOfKeyPoint {
     let image1 = convert_to_dynamic_image(&filename);
     let binarized_image1 = binarize(&image1);
     return get_keypoints(&binarized_image1);
 }
 
-
 fn get_keypoints(image: &DynamicImage) -> opencv::types::VectorOfKeyPoint {
     let mut akaze = AKAZE::create(DESCRIPTOR_MLDB, 0, 3, 0.001, 4, 4, DIFF_PM_G2).unwrap();
     let mut key_points = opencv::types::VectorOfKeyPoint::new();
     let mut descriptors = Mat::default();
-    akaze.detect_and_compute(&dynamic_image_to_mat(image, IMREAD_GRAYSCALE), &[], &mut key_points, &mut descriptors, false).unwrap();
+    akaze
+        .detect_and_compute(
+            &dynamic_image_to_mat(image, IMREAD_GRAYSCALE),
+            &[],
+            &mut key_points,
+            &mut descriptors,
+            false,
+        )
+        .unwrap();
     return key_points;
 }
-
 
 /**
  * 画像を2値化する
@@ -107,7 +110,8 @@ fn get_keypoints(image: &DynamicImage) -> opencv::types::VectorOfKeyPoint {
 fn binarize(image: &DynamicImage) -> DynamicImage {
     let mat = dynamic_image_to_mat(image, IMREAD_GRAYSCALE);
 
-    let max_thresh_val = threshold(&mat, &mut Mat::default(), 0.0, 255.0, THRESH_OTSU).unwrap() as f32;
+    let max_thresh_val =
+        threshold(&mat, &mut Mat::default(), 0.0, 255.0, THRESH_OTSU).unwrap() as f32;
 
     let (width, height) = image.dimensions();
     let mut new_image = RgbImage::new(width, height);
@@ -128,16 +132,16 @@ fn binarize(image: &DynamicImage) -> DynamicImage {
     return DynamicImage::from(new_image);
 }
 
-
 /**
  * DynamicImageをMatに変換する
  */
 fn dynamic_image_to_mat(image: &DynamicImage, flags: i32) -> Mat {
     let mut bytes: Vec<u8> = Vec::new();
-    image.write_to(&mut Cursor::new(&mut bytes), image::ImageOutputFormat::Tiff).unwrap();
+    image
+        .write_to(&mut Cursor::new(&mut bytes), image::ImageOutputFormat::Tiff)
+        .unwrap();
     return imdecode(&bytes.as_slice(), flags).unwrap();
 }
-
 
 /**
 * MatをDynamicImageに変換する
@@ -148,14 +152,16 @@ fn mat_to_dynamic_image(mat: &Mat) -> DynamicImage {
     return image::load_from_memory(buf.as_slice()).unwrap();
 }
 
-
 fn convert_to_dynamic_image(file_path: &str) -> DynamicImage {
     let raw_image = rawler::decode_file(file_path).unwrap();
     let dev = RawDevelop::default();
-    let image = dev.develop_intermediate(&raw_image).unwrap().to_dynamic_image().unwrap();
+    let image = dev
+        .develop_intermediate(&raw_image)
+        .unwrap()
+        .to_dynamic_image()
+        .unwrap();
     return image;
 }
-
 
 /**
  * 画像を比較明合成する
