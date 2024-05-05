@@ -3,13 +3,19 @@ use std::io::Cursor;
 use clap::Parser;
 use image::{DynamicImage, GenericImageView, RgbImage};
 use opencv::calib3d::{estimate_affine_2d, RANSAC};
-use opencv::core::{DMatch, KeyPoint, KeyPointTraitConst, Mat, MatTraitConst, no_array, NORM_HAMMING, Point2d, Point2f, Scalar, Vector};
-use opencv::features2d::{AKAZE, BFMatcher, DescriptorMatcherTrait, DescriptorMatcherTraitConst, draw_keypoints, draw_matches, Feature2DTrait};
+use opencv::core::{
+    no_array, DMatch, KeyPoint, KeyPointTraitConst, Mat, MatTraitConst, Point2d, Point2f, Scalar,
+    Vector, NORM_HAMMING,
+};
 use opencv::features2d::AKAZE_DescriptorType::{DESCRIPTOR_KAZE, DESCRIPTOR_MLDB};
 use opencv::features2d::DrawMatchesFlags::{DEFAULT, NOT_DRAW_SINGLE_POINTS};
 use opencv::features2d::KAZE_DiffusivityType::DIFF_PM_G2;
+use opencv::features2d::{
+    draw_keypoints, draw_matches, BFMatcher, DescriptorMatcherTrait, DescriptorMatcherTraitConst,
+    Feature2DTrait, AKAZE,
+};
 use opencv::imgcodecs::{imdecode, imencode, IMREAD_COLOR, IMREAD_GRAYSCALE};
-use opencv::imgproc::{get_affine_transform, THRESH_OTSU, threshold, warp_affine};
+use opencv::imgproc::{get_affine_transform, threshold, warp_affine, THRESH_OTSU};
 use opencv::types::{VectorOfDMatch, VectorOfKeyPoint};
 use rawler::imgop::develop::RawDevelop;
 
@@ -78,12 +84,25 @@ fn main() {
                 apt2.push(k2.get(m.train_idx as usize).unwrap().pt());
             }
 
-            let affine = estimate_affine_2d(&apt1, &apt2, &mut no_array(), RANSAC, 3.0, 2000, 0.99, 10).unwrap();
+            let affine =
+                estimate_affine_2d(&apt1, &apt2, &mut no_array(), RANSAC, 3.0, 2000, 0.99, 10)
+                    .unwrap();
             println!("Affine : {:?}", affine);
 
-            let mut output = Mat::default();
-            warp_affine(&mat1, &mut output, &affine, mat1.size().unwrap(), 1, 0, Scalar::default()).unwrap();
-            mat_to_dynamic_image(&output).save("mat1_converted.tiff").unwrap();
+            let mut converted = Mat::default();
+            warp_affine(
+                &mat1,
+                &mut converted,
+                &affine,
+                mat1.size().unwrap(),
+                1,
+                0,
+                Scalar::default(),
+            )
+            .unwrap();
+            mat_to_dynamic_image(&converted)
+                .save("mat1_converted.tiff")
+                .unwrap();
 
             mat_to_dynamic_image(&mat1).save("mat1.tiff").unwrap();
             mat_to_dynamic_image(&mat2).save("mat2.tiff").unwrap();
@@ -91,7 +110,13 @@ fn main() {
     };
 }
 
-fn draw_match_points(k1: &Vector<KeyPoint>, k2: &Vector<KeyPoint>, matches: &Vector<DMatch>, mat1: &Mat, mat2: &Mat) {
+fn draw_match_points(
+    k1: &Vector<KeyPoint>,
+    k2: &Vector<KeyPoint>,
+    matches: &Vector<DMatch>,
+    mat1: &Mat,
+    mat2: &Mat,
+) {
     let mut output = Mat::default();
     draw_matches(
         &mat1,
@@ -104,7 +129,8 @@ fn draw_match_points(k1: &Vector<KeyPoint>, k2: &Vector<KeyPoint>, matches: &Vec
         Scalar::all(-1f64),
         &Vector::new(),
         NOT_DRAW_SINGLE_POINTS,
-    ).unwrap();
+    )
+    .unwrap();
     mat_to_dynamic_image(&output).save("matches.tiff").unwrap();
 }
 
@@ -112,7 +138,11 @@ fn draw_match_points(k1: &Vector<KeyPoint>, k2: &Vector<KeyPoint>, matches: &Vec
 * 画像のサイズを変更する
  */
 fn resize_image(img: DynamicImage, scale: f32) -> DynamicImage {
-    let image1 = img.resize(img.width() * scale as u32, img.height() * scale as u32, image::imageops::FilterType::Nearest);
+    let image1 = img.resize(
+        img.width() * scale as u32,
+        img.height() * scale as u32,
+        image::imageops::FilterType::Nearest,
+    );
     return image1;
 }
 
