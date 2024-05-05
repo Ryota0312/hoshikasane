@@ -2,14 +2,14 @@ use std::io::Cursor;
 
 use clap::Parser;
 use image::{DynamicImage, GenericImageView, RgbImage};
-use opencv::core::{Mat, Scalar, Vector};
-use opencv::features2d::{AKAZE, draw_keypoints, Feature2DTrait};
-use opencv::features2d::AKAZE_DescriptorType::DESCRIPTOR_MLDB;
-use opencv::features2d::DrawMatchesFlags::DEFAULT;
+use opencv::core::{DMatch, KeyPoint, Mat, no_array, NORM_HAMMING, Scalar, Vector};
+use opencv::features2d::{AKAZE, BFMatcher, DescriptorMatcherTrait, DescriptorMatcherTraitConst, draw_keypoints, draw_matches, Feature2DTrait};
+use opencv::features2d::AKAZE_DescriptorType::{DESCRIPTOR_KAZE, DESCRIPTOR_MLDB};
+use opencv::features2d::DrawMatchesFlags::{DEFAULT, NOT_DRAW_SINGLE_POINTS};
 use opencv::features2d::KAZE_DiffusivityType::DIFF_PM_G2;
 use opencv::imgcodecs::{imdecode, imencode, IMREAD_COLOR, IMREAD_GRAYSCALE};
 use opencv::imgproc::{THRESH_OTSU, threshold};
-use opencv::types::VectorOfKeyPoint;
+use opencv::types::{VectorOfDMatch, VectorOfKeyPoint};
 use rawler::imgop::develop::RawDevelop;
 
 #[derive(clap::Subcommand, Clone, Debug)]
@@ -63,32 +63,54 @@ fn main() {
                 return;
             }
 
-            for f in files {
-                draw_keypoints_from_filename(&f);
-            }
+            let (k1, d1, k2, d2, matches) = matches(&files[0], &files[1]);
+
+            let mat1 = dynamic_image_to_mat(&convert_to_dynamic_image(&files[0]), IMREAD_GRAYSCALE);
+            let mat2 = dynamic_image_to_mat(&convert_to_dynamic_image(&files[1]), IMREAD_GRAYSCALE);
+
+            let mut output =  Mat::default();
+            draw_matches(
+                &mat1,
+                &k1,
+                &mat2,
+                &k2,
+                &matches,
+                &mut output,
+                Scalar::all(-1f64),
+                Scalar::all(-1f64),
+                &Vector::new(),
+                NOT_DRAW_SINGLE_POINTS,
+            ).unwrap();
+            mat_to_dynamic_image(&output).save("output.tiff").unwrap();
         }
     };
 }
 
-fn draw_keypoints_from_filename(file: &str) {
-    let image1 = convert_to_dynamic_image(file);
-    let mat = dynamic_image_to_mat(&image1, IMREAD_COLOR);
-    let vector = get_keypoints_from_filename(file);
-
-    let mut output = Mat::default();
-    draw_keypoints(&mat, &vector, &mut output, Scalar::all(-1f64), DEFAULT).unwrap();
-    let output_image = mat_to_dynamic_image(&output);
-    output_image.save("output.tiff").unwrap();
+/**
+* 画像のサイズを変更する
+ */
+fn resize_image(img: DynamicImage, scale: f32) -> DynamicImage {
+    let image1 = img.resize(img.width() * scale as u32, img.height() * scale as u32, image::imageops::FilterType::Nearest);
+    return image1;
 }
 
-fn get_keypoints_from_filename(filename: &str) -> VectorOfKeyPoint {
-    let image1 = convert_to_dynamic_image(&filename);
-    let binarized_image1 = binarize(&image1);
-    return get_keypoints(&binarized_image1);
+fn matches(f1: &str, f2: &str) -> (Vector<KeyPoint>, Mat, Vector<KeyPoint>, Mat, Vector<DMatch>) {
+    let (k1, d1) = get_keypoints_and_descriptor(&convert_to_dynamic_image(f1));
+    let (k2, d2) = get_keypoints_and_descriptor(&convert_to_dynamic_image(f2));
+
+    let mut bf_matcher = BFMatcher::create(NORM_HAMMING, true).unwrap();
+
+    let mut matches = VectorOfDMatch::new();
+    bf_matcher
+        .train_match(&d1, &d2, &mut matches, &no_array())
+        .unwrap();
+
+    println!("\n MATHES : {} --------------------", matches.len());
+    return (k1, d1, k2, d2, matches);
 }
 
-fn get_keypoints(image: &DynamicImage) -> VectorOfKeyPoint {
-    let mut akaze = AKAZE::create(DESCRIPTOR_MLDB, 0, 3, 0.001, 4, 4, DIFF_PM_G2).unwrap();
+fn get_keypoints_and_descriptor(image: &DynamicImage) -> (Vector<KeyPoint>, Mat) {
+    let mut akaze = AKAZE::create(DESCRIPTOR_MLDB, 0, 3, 0.05, 4, 4, DIFF_PM_G2).unwrap();
     let mut key_points = VectorOfKeyPoint::new();
     let mut descriptors = Mat::default();
     akaze
@@ -100,7 +122,7 @@ fn get_keypoints(image: &DynamicImage) -> VectorOfKeyPoint {
             false,
         )
         .unwrap();
-    return key_points;
+    return (key_points, descriptors);
 }
 
 /**
