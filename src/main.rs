@@ -68,22 +68,26 @@ fn main() {
             let mat1 = dynamic_image_to_mat(&convert_to_dynamic_image(&files[0]), IMREAD_GRAYSCALE);
             let mat2 = dynamic_image_to_mat(&convert_to_dynamic_image(&files[1]), IMREAD_GRAYSCALE);
 
-            let mut output =  Mat::default();
-            draw_matches(
-                &mat1,
-                &k1,
-                &mat2,
-                &k2,
-                &matches,
-                &mut output,
-                Scalar::all(-1f64),
-                Scalar::all(-1f64),
-                &Vector::new(),
-                NOT_DRAW_SINGLE_POINTS,
-            ).unwrap();
-            mat_to_dynamic_image(&output).save("output.tiff").unwrap();
+            draw_match_points(&k1, &k2, &matches, &mat1, &mat2);
         }
     };
+}
+
+fn draw_match_points(k1: &Vector<KeyPoint>, k2: &Vector<KeyPoint>, matches: &Vector<DMatch>, mat1: &Mat, mat2: &Mat) {
+    let mut output = Mat::default();
+    draw_matches(
+        &mat1,
+        &k1,
+        &mat2,
+        &k2,
+        &matches,
+        &mut output,
+        Scalar::all(-1f64),
+        Scalar::all(-1f64),
+        &Vector::new(),
+        NOT_DRAW_SINGLE_POINTS,
+    ).unwrap();
+    mat_to_dynamic_image(&output).save("output.tiff").unwrap();
 }
 
 /**
