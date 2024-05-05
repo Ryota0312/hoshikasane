@@ -2,13 +2,14 @@ use std::io::Cursor;
 
 use clap::Parser;
 use image::{DynamicImage, GenericImageView, RgbImage};
-use opencv::core::{DMatch, KeyPoint, Mat, no_array, NORM_HAMMING, Scalar, Vector};
+use opencv::calib3d::{estimate_affine_2d, RANSAC};
+use opencv::core::{DMatch, KeyPoint, KeyPointTraitConst, Mat, MatTraitConst, no_array, NORM_HAMMING, Point2d, Point2f, Scalar, Vector};
 use opencv::features2d::{AKAZE, BFMatcher, DescriptorMatcherTrait, DescriptorMatcherTraitConst, draw_keypoints, draw_matches, Feature2DTrait};
 use opencv::features2d::AKAZE_DescriptorType::{DESCRIPTOR_KAZE, DESCRIPTOR_MLDB};
 use opencv::features2d::DrawMatchesFlags::{DEFAULT, NOT_DRAW_SINGLE_POINTS};
 use opencv::features2d::KAZE_DiffusivityType::DIFF_PM_G2;
 use opencv::imgcodecs::{imdecode, imencode, IMREAD_COLOR, IMREAD_GRAYSCALE};
-use opencv::imgproc::{THRESH_OTSU, threshold};
+use opencv::imgproc::{get_affine_transform, THRESH_OTSU, threshold, warp_affine};
 use opencv::types::{VectorOfDMatch, VectorOfKeyPoint};
 use rawler::imgop::develop::RawDevelop;
 
@@ -69,6 +70,23 @@ fn main() {
             let mat2 = dynamic_image_to_mat(&convert_to_dynamic_image(&files[1]), IMREAD_GRAYSCALE);
 
             draw_match_points(&k1, &k2, &matches, &mat1, &mat2);
+
+            let mut apt1: Vector<Point2f> = Vector::new();
+            let mut apt2: Vector<Point2f> = Vector::new();
+            for m in matches {
+                apt1.push(k1.get(m.query_idx as usize).unwrap().pt());
+                apt2.push(k2.get(m.train_idx as usize).unwrap().pt());
+            }
+
+            let affine = estimate_affine_2d(&apt1, &apt2, &mut no_array(), RANSAC, 3.0, 2000, 0.99, 10).unwrap();
+            println!("Affine : {:?}", affine);
+
+            let mut output = Mat::default();
+            warp_affine(&mat1, &mut output, &affine, mat1.size().unwrap(), 1, 0, Scalar::default()).unwrap();
+            mat_to_dynamic_image(&output).save("mat1_converted.tiff").unwrap();
+
+            mat_to_dynamic_image(&mat1).save("mat1.tiff").unwrap();
+            mat_to_dynamic_image(&mat2).save("mat2.tiff").unwrap();
         }
     };
 }
@@ -87,7 +105,7 @@ fn draw_match_points(k1: &Vector<KeyPoint>, k2: &Vector<KeyPoint>, matches: &Vec
         &Vector::new(),
         NOT_DRAW_SINGLE_POINTS,
     ).unwrap();
-    mat_to_dynamic_image(&output).save("output.tiff").unwrap();
+    mat_to_dynamic_image(&output).save("matches.tiff").unwrap();
 }
 
 /**
