@@ -105,12 +105,20 @@ fn matches(f1: &str, f2: &str) -> (Vector<KeyPoint>, Mat, Vector<KeyPoint>, Mat,
         .train_match(&d1, &d2, &mut matches, &no_array())
         .unwrap();
 
-    println!("\n MATHES : {} --------------------", matches.len());
-    return (k1, d1, k2, d2, matches);
+    let mut good_matches = VectorOfDMatch::new();
+    for m in &matches {
+        if m.distance < 20.0 {
+            good_matches.push(m);
+        }
+    }
+
+    println!("\n MATHES : {} --------------------", &matches.len());
+    println!("GOOD MATHES : {} --------------------", &good_matches.len());
+    return (k1, d1, k2, d2, good_matches);
 }
 
 fn get_keypoints_and_descriptor(image: &DynamicImage) -> (Vector<KeyPoint>, Mat) {
-    let mut akaze = AKAZE::create(DESCRIPTOR_MLDB, 0, 3, 0.05, 4, 4, DIFF_PM_G2).unwrap();
+    let mut akaze = AKAZE::create(DESCRIPTOR_MLDB, 0, 3, 0.001, 4, 4, DIFF_PM_G2).unwrap();
     let mut key_points = VectorOfKeyPoint::new();
     let mut descriptors = Mat::default();
     akaze
