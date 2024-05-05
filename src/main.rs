@@ -4,18 +4,17 @@ use clap::Parser;
 use image::{DynamicImage, GenericImageView, RgbImage};
 use opencv::calib3d::{estimate_affine_2d, RANSAC};
 use opencv::core::{
-    no_array, DMatch, KeyPoint, KeyPointTraitConst, Mat, MatTraitConst, Point2d, Point2f, Scalar,
-    Vector, NORM_HAMMING,
+    no_array, DMatch, KeyPoint, KeyPointTraitConst, Mat, MatTraitConst, Point2f, Scalar, Vector,
+    NORM_HAMMING,
 };
-use opencv::features2d::AKAZE_DescriptorType::{DESCRIPTOR_KAZE, DESCRIPTOR_MLDB};
-use opencv::features2d::DrawMatchesFlags::{DEFAULT, NOT_DRAW_SINGLE_POINTS};
+use opencv::features2d::AKAZE_DescriptorType::DESCRIPTOR_MLDB;
+use opencv::features2d::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS;
 use opencv::features2d::KAZE_DiffusivityType::DIFF_PM_G2;
 use opencv::features2d::{
-    draw_keypoints, draw_matches, BFMatcher, DescriptorMatcherTrait, DescriptorMatcherTraitConst,
-    Feature2DTrait, AKAZE,
+    draw_matches, BFMatcher, DescriptorMatcherTraitConst, Feature2DTrait, AKAZE,
 };
 use opencv::imgcodecs::{imdecode, imencode, IMREAD_COLOR, IMREAD_GRAYSCALE};
-use opencv::imgproc::{get_affine_transform, threshold, warp_affine, THRESH_OTSU};
+use opencv::imgproc::{threshold, warp_affine, THRESH_OTSU};
 use opencv::types::{VectorOfDMatch, VectorOfKeyPoint};
 use rawler::imgop::develop::RawDevelop;
 
@@ -28,9 +27,12 @@ enum Mode {
         #[arg(short, long)]
         output: String,
     },
-    Test {
-        #[arg(short, long, value_delimiter = ',')]
-        file: Vec<String>,
+    AffineConvert {
+        #[arg(short, long)]
+        base: String,
+
+        #[arg(short, long)]
+        target: String,
     },
 }
 
@@ -64,18 +66,23 @@ fn main() {
             }
             new_image.save(output).unwrap();
         }
-        Mode::Test { file: files } => {
-            if files.len() == 0 {
-                println!("Should specify file.");
+        Mode::AffineConvert { base, target } => {
+            if base == "" {
+                println!("Should specify base file.");
+                return;
+            }
+            if target == "" {
+                println!("Should specify target file.");
                 return;
             }
 
-            let (k1, d1, k2, d2, matches) = matches(&files[0], &files[1]);
+            let (k1, d1, k2, d2, matches) = matches(&base, &target);
 
-            let mat1 = dynamic_image_to_mat(&convert_to_dynamic_image(&files[0]), IMREAD_GRAYSCALE);
-            let mat2 = dynamic_image_to_mat(&convert_to_dynamic_image(&files[1]), IMREAD_GRAYSCALE);
+            let base_img = dynamic_image_to_mat(&convert_to_dynamic_image(&base), IMREAD_COLOR);
+            let target_image =
+                dynamic_image_to_mat(&convert_to_dynamic_image(&target), IMREAD_COLOR);
 
-            draw_match_points(&k1, &k2, &matches, &mat1, &mat2);
+            draw_match_points(&k1, &k2, &matches, &base_img, &target_image);
 
             let mut apt1: Vector<Point2f> = Vector::new();
             let mut apt2: Vector<Point2f> = Vector::new();
@@ -85,27 +92,29 @@ fn main() {
             }
 
             let affine =
-                estimate_affine_2d(&apt1, &apt2, &mut no_array(), RANSAC, 3.0, 2000, 0.99, 10)
+                estimate_affine_2d(&apt2, &apt1, &mut no_array(), RANSAC, 3.0, 2000, 0.99, 10)
                     .unwrap();
             println!("Affine : {:?}", affine);
 
             let mut converted = Mat::default();
             warp_affine(
-                &mat1,
+                &target_image,
                 &mut converted,
                 &affine,
-                mat1.size().unwrap(),
+                target_image.size().unwrap(),
                 1,
                 0,
                 Scalar::default(),
             )
             .unwrap();
             mat_to_dynamic_image(&converted)
-                .save("mat1_converted.tiff")
+                .save("converted.tiff")
                 .unwrap();
 
-            mat_to_dynamic_image(&mat1).save("mat1.tiff").unwrap();
-            mat_to_dynamic_image(&mat2).save("mat2.tiff").unwrap();
+            mat_to_dynamic_image(&base_img).save("base.tiff").unwrap();
+            mat_to_dynamic_image(&target_image)
+                .save("target.tiff")
+                .unwrap();
         }
     };
 }
@@ -234,14 +243,26 @@ fn mat_to_dynamic_image(mat: &Mat) -> DynamicImage {
 }
 
 fn convert_to_dynamic_image(file_path: &str) -> DynamicImage {
-    let raw_image = rawler::decode_file(file_path).unwrap();
-    let dev = RawDevelop::default();
-    let image = dev
-        .develop_intermediate(&raw_image)
-        .unwrap()
-        .to_dynamic_image()
-        .unwrap();
-    return image;
+    let file_ext = file_path.split(".").last().unwrap();
+
+    match file_ext {
+        "CR3" => {
+            let raw_image = rawler::decode_file(file_path).unwrap();
+            let dev = RawDevelop::default();
+            let image = dev
+                .develop_intermediate(&raw_image)
+                .unwrap()
+                .to_dynamic_image()
+                .unwrap();
+            return image;
+        }
+        "tiff" => {
+            return image::open(file_path).unwrap();
+        }
+        _ => {
+            panic!("Unsupported file type.")
+        }
+    }
 }
 
 /**
