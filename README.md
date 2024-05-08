@@ -11,7 +11,7 @@ Output following files (now include some files for DEBUG):
 - target.tiff: target image
 - converted.tiff: target image which reshape fit to base image
 
-2. Lighten composite
+2. Average composite
 ```shell
-$ cargo run -- composite --file base.tiff,converted.tiff --output output.tiff
+$ cargo run -- average-composite --file base.tiff,converted.tiff --output output.tiff
 ```

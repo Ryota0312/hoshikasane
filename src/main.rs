@@ -20,7 +20,14 @@ use rawler::imgop::develop::RawDevelop;
 
 #[derive(clap::Subcommand, Clone, Debug)]
 enum Mode {
-    Composite {
+    LightenComposite {
+        #[arg(short, long, value_delimiter = ',')]
+        file: Vec<String>,
+
+        #[arg(short, long)]
+        output: String,
+    },
+    AverageComposite {
         #[arg(short, long, value_delimiter = ',')]
         file: Vec<String>,
 
@@ -47,7 +54,7 @@ fn main() {
     let args = Cli::parse();
 
     match args.mode {
-        Mode::Composite { file, output } => {
+        Mode::LightenComposite { file, output } => {
             if file.len() > 2 {
                 println!("Should specify more than 2 images.");
                 return;
@@ -62,7 +69,26 @@ fn main() {
             let mut new_image: DynamicImage = first_image.clone();
             for f in &file[1..file.len()] {
                 let image = convert_to_dynamic_image(f);
-                new_image = lighten_composition_inner(&new_image, &image);
+                new_image = lighten_composition(&new_image, &image);
+            }
+            new_image.save(output).unwrap();
+        }
+        Mode::AverageComposite { file, output } => {
+            if file.len() > 2 {
+                println!("Should specify more than 2 images.");
+                return;
+            }
+
+            if output == "" {
+                println!("Should specify output file.");
+                return;
+            }
+
+            let first_image = convert_to_dynamic_image(&file[0]);
+            let mut new_image: DynamicImage = first_image.clone();
+            for f in &file[1..file.len()] {
+                let image = convert_to_dynamic_image(f);
+                new_image = average_composition(&new_image, &image);
             }
             new_image.save(output).unwrap();
         }
@@ -141,18 +167,6 @@ fn draw_match_points(
     )
     .unwrap();
     mat_to_dynamic_image(&output).save("matches.tiff").unwrap();
-}
-
-/**
-* 画像のサイズを変更する
- */
-fn resize_image(img: DynamicImage, scale: f32) -> DynamicImage {
-    let image1 = img.resize(
-        img.width() * scale as u32,
-        img.height() * scale as u32,
-        image::imageops::FilterType::Nearest,
-    );
-    return image1;
 }
 
 fn matches(f1: &str, f2: &str) -> (Vector<KeyPoint>, Mat, Vector<KeyPoint>, Mat, Vector<DMatch>) {
@@ -268,7 +282,7 @@ fn convert_to_dynamic_image(file_path: &str) -> DynamicImage {
 /**
  * 画像を比較明合成する
  */
-fn lighten_composition_inner(image1: &DynamicImage, image2: &DynamicImage) -> DynamicImage {
+fn lighten_composition(image1: &DynamicImage, image2: &DynamicImage) -> DynamicImage {
     let (width, height) = image1.dimensions();
     let mut image = RgbImage::new(width, height);
 
@@ -297,5 +311,36 @@ fn lighten_composition_inner(image1: &DynamicImage, image2: &DynamicImage) -> Dy
     }
 
     // return image;
+    return DynamicImage::from(image);
+}
+
+/**
+* 画像を加算平均合成する
+*/
+fn average_composition(image1: &DynamicImage, image2: &DynamicImage) -> DynamicImage {
+    let (width, height) = image1.dimensions();
+    let mut image = RgbImage::new(width, height);
+
+    for y in 0..height {
+        for x in 0..width {
+            let pixel1 = image1.get_pixel(x, y);
+            let pixel2 = image2.get_pixel(x, y);
+
+            let r1 = pixel1[0] as f32;
+            let g1 = pixel1[1] as f32;
+            let b1 = pixel1[2] as f32;
+
+            let r2 = pixel2[0] as f32;
+            let g2 = pixel2[1] as f32;
+            let b2 = pixel2[2] as f32;
+
+            let r = (r1 + r2) / 2.0;
+            let g = (g1 + g2) / 2.0;
+            let b = (b1 + b2) / 2.0;
+
+            image.put_pixel(x, y, image::Rgb([r as u8, g as u8, b as u8]));
+        }
+    }
+
     return DynamicImage::from(image);
 }
