@@ -41,6 +41,7 @@ enum Mode {
         #[arg(short, long)]
         target: String,
     },
+    Test {}
 }
 
 #[derive(clap::Parser)]
@@ -141,6 +142,10 @@ fn main() {
             mat_to_dynamic_image(&target_image)
                 .save("target.tiff")
                 .unwrap();
+        }
+        Mode::Test {} => {
+            println!("Hello, world!");
+            stellacomp::hello_stellacomp();
         }
     };
 }
