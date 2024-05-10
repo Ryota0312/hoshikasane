@@ -597,7 +597,6 @@ dependencies = [
  "clap",
  "image",
  "opencv",
- "rawler",
  "stellacomp",
 ]
 
