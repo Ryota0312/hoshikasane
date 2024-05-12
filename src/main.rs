@@ -4,9 +4,9 @@ use opencv::calib3d::{estimate_affine_2d, RANSAC};
 use opencv::core::{no_array, KeyPointTraitConst, Mat, MatTraitConst, Point2f, Scalar, Vector};
 use opencv::imgcodecs::IMREAD_COLOR;
 use opencv::imgproc::warp_affine;
-use stellacomp::{
-    average_composition, convert_to_dynamic_image, draw_match_points, dynamic_image_to_mat,
-    lighten_composition, mat_to_dynamic_image, matches,
+use stellacomp::calc::matches;
+use stellacomp::utils::{
+    convert_to_dynamic_image, draw_match_points, dynamic_image_to_mat, mat_to_dynamic_image,
 };
 
 #[derive(clap::Subcommand, Clone, Debug)]
@@ -60,7 +60,7 @@ fn main() {
             let mut new_image: DynamicImage = first_image.clone();
             for f in &file[1..file.len()] {
                 let image = convert_to_dynamic_image(f);
-                new_image = lighten_composition(&new_image, &image);
+                new_image = stellacomp::composite::lighten(&new_image, &image);
             }
             new_image.save(output).unwrap();
         }
@@ -79,7 +79,7 @@ fn main() {
             let mut new_image: DynamicImage = first_image.clone();
             for f in &file[1..file.len()] {
                 let image = convert_to_dynamic_image(f);
-                new_image = average_composition(&new_image, &image);
+                new_image = stellacomp::composite::average(&new_image, &image);
             }
             new_image.save(output).unwrap();
         }
