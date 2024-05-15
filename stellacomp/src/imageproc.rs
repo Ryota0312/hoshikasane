@@ -1,4 +1,8 @@
+use crate::utils::dynamic_image_to_mat;
 use image::{DynamicImage, GenericImageView, RgbImage};
+use opencv::core::Mat;
+use opencv::imgcodecs::IMREAD_GRAYSCALE;
+use opencv::imgproc::{threshold, THRESH_OTSU};
 
 /**
  * 画像を比較明合成する
@@ -64,4 +68,32 @@ pub fn average(image1: &DynamicImage, image2: &DynamicImage) -> DynamicImage {
     }
 
     return DynamicImage::from(image);
+}
+
+/**
+ * 画像を2値化する
+ */
+pub fn binarize(image: &DynamicImage) -> DynamicImage {
+    let mat = dynamic_image_to_mat(image, IMREAD_GRAYSCALE);
+
+    let max_thresh_val =
+        threshold(&mat, &mut Mat::default(), 0.0, 255.0, THRESH_OTSU).unwrap() as f32;
+
+    let (width, height) = image.dimensions();
+    let mut new_image = RgbImage::new(width, height);
+    for y in 0..height {
+        for x in 0..width {
+            let pixel = image.get_pixel(x, y);
+            let r = pixel[0] as f32;
+            let g = pixel[1] as f32;
+            let b = pixel[2] as f32;
+            let l = 0.299 * r + 0.587 * g + 0.114 * b;
+            if l > max_thresh_val {
+                new_image.put_pixel(x, y, image::Rgb([255, 255, 255]));
+            } else {
+                new_image.put_pixel(x, y, image::Rgb([0, 0, 0]));
+            }
+        }
+    }
+    return DynamicImage::from(new_image);
 }

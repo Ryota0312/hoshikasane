@@ -60,7 +60,7 @@ fn main() {
             let mut new_image: DynamicImage = first_image.clone();
             for f in &file[1..file.len()] {
                 let image = convert_to_dynamic_image(f);
-                new_image = stellacomp::composite::lighten(&new_image, &image);
+                new_image = stellacomp::imageproc::lighten(&new_image, &image);
             }
             new_image.save(output).unwrap();
         }
@@ -79,7 +79,7 @@ fn main() {
             let mut new_image: DynamicImage = first_image.clone();
             for f in &file[1..file.len()] {
                 let image = convert_to_dynamic_image(f);
-                new_image = stellacomp::composite::average(&new_image, &image);
+                new_image = stellacomp::imageproc::average(&new_image, &image);
             }
             new_image.save(output).unwrap();
         }
@@ -93,7 +93,7 @@ fn main() {
                 return;
             }
 
-            let (k1, d1, k2, d2, matches) = matches(&base, &target);
+            let (k1, _, k2, _, matches) = matches(&base, &target);
 
             let base_img = dynamic_image_to_mat(&convert_to_dynamic_image(&base), IMREAD_COLOR);
             let target_image =

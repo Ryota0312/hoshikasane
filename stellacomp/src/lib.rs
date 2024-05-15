@@ -1,3 +1,3 @@
 pub mod calc;
-pub mod composite;
+pub mod imageproc;
 pub mod utils;
